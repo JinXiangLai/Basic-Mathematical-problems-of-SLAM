@@ -157,6 +157,30 @@ Eigen::Vector3d FeatureTriangulation4(std::vector<Pose> poses, std::vector<Eigen
     return poses[0] * (s1 * Xa);
 }
 
+// OpenVins - 3D Depth Triangulation!
+Eigen::Vector3d FeatureTriangulation5(std::vector<Pose> poses, std::vector<Eigen::Vector2d> points)
+{
+    // Rcw * Pw + tcw = s * Xc
+    // [Xc]x * Rcw * Pw = -[Xc]x * tcw
+    const int num = poses.size();
+    Eigen::MatrixXd A(3 * num, 3);
+    Eigen::VectorXd b(3 * num, 1);
+    for (int i = 0; i < num; ++i)
+    {
+        const Eigen::Matrix3d Rcw = poses[i].Rwc.transpose();
+        const Eigen::Vector3d tcw = -Rcw * poses[i].twc;
+        const Eigen::Vector2d& p = points[i];
+        const Eigen::Vector3d Xc(p[0], p[1], 1);
+        A.block(3 * i, 0, 3, 3) = hat(Xc) * Rcw;
+        b.middleRows(3 * i, 3) = -hat(Xc) * tcw;
+    }
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    std::cout << "singularValue: " << svd.singularValues().transpose() << std::endl;
+    std::cout << "conditional number: " << svd.singularValues()[2] / svd.singularValues()[0] << std::endl;
+    const Eigen::Vector3d Pw = A.colPivHouseholderQr().solve(b);
+    return Pw;
+}
+
 int main()
 {
     int featureNums = 20;
@@ -245,7 +269,8 @@ int main()
             H.block<3, 6>(J, I) += jacobian_Pj.transpose() * jacobian_Ti;
             H.block<3, 3>(J, J) += jacobian_Pj.transpose() * jacobian_Pj;
         }
-        Eigen::Vector3d PEw = FeatureTriangulation3(poses, points);
+        // Eigen::Vector3d PEw = FeatureTriangulation3(poses, points);
+        Eigen::Vector3d PEw = FeatureTriangulation5(poses, points);
         std::cout << "true Pa = " << Pw.transpose() << std::endl;
         std::cout << "eval Pa = " << PEw.transpose() << std::endl;
         std::cout << std::endl;

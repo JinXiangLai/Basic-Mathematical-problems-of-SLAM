@@ -276,6 +276,12 @@ int main()
         std::cout << std::endl;
     }
 
+#define FIX_FIRST_FRAME
+#ifdef FIX_FIRST_FRAME
+    // OK，当我fix首帧的时候，只有一个scale维度是0空间了，与了理论一致
+    H.block(0, 0, 6, 6).setConstant(1e20);
+#endif
+
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(H, Eigen::ComputeThinU | Eigen::ComputeThinV);
     std::cout << "singular num = " << svd.singularValues().rows() << std::endl;
     Eigen::VectorXd s = svd.singularValues().tail(10);
